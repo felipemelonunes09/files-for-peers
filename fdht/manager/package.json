@@ -1,0 +1,24 @@
+{
+  "name": "dhtmanager",
+  "version": "1.0.0",
+  "description": "It expose an interface for handling a hashtable containing peers files information",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/felipemelonunes09/FilesForPeers-fdht.git"
+  },
+  "keywords": [
+    "Peers",
+    "NestJs",
+    "Hashtable"
+  ],
+  "author": "Felipe Nunes Melo",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/felipemelonunes09/FilesForPeers-fdht/issues"
+  },
+  "homepage": "https://github.com/felipemelonunes09/FilesForPeers-fdht#readme"
+}

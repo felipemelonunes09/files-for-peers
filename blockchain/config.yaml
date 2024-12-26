@@ -1,0 +1,31 @@
+service:
+  name: 'blockchain'
+  connection: 'RESTHashtableConn'
+  identity-uuid: '8799416d-6cb2-4ddd-a2db-6e99efdb9db6'
+fdht: 
+  manager:
+    ip: "127.0.0.1"
+    port: 3000
+  sync:
+    ip: "0.0.0.0"
+    port: 3001
+udht:
+  manager:
+    ip: "127.0.0.1"
+    port: 3002
+  sync:
+    ip: "0.0.0.0"
+    port: 3003
+blockchain:
+  data:
+    ip: "127.0.0.1"
+    port: 5001
+  network:
+    ip: "127.0.0.1"
+    port: 6002
+  consensus:
+    ip: "127.0.0.1"
+    port: 7003
+  incentive:
+    ip: "127.0.0.1"
+    port: 8004

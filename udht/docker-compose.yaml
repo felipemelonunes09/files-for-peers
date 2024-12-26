@@ -1,0 +1,10 @@
+version: "3.8"
+services:
+  dhtmanager:
+    build: ./DHTManager
+    ports:
+      - 8000:8000
+    environment: 
+      - "DHT_PORT=8000"
+    volumes:
+      - .:/DHTManager
