@@ -1,7 +1,5 @@
 service:
-  name: 'blockchain'
-  connection: 'RESTHashtableConn'
-  identity-uuid: '8799416d-6cb2-4ddd-a2db-6e99efdb9db6'
+  name: 'files-for-peers'
 fdht: 
   manager:
     ip: "127.0.0.1"
