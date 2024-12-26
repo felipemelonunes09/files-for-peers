@@ -1,0 +1,8 @@
+version: "3.8"
+services:
+  udht-manager:
+  udht-sync:
+  fdht-manager:
+  dfht-sync:
+  blockchain:
+  
