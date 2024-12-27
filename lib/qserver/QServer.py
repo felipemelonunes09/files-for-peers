@@ -64,7 +64,9 @@ class Map(Generic[T]):
     
 class JsonMap():
     def __init__(self):
+        self.__mapper: dict[str, Prototype.Property] = dict()
         super().__init__()
+
     def __call__(self, func: Callable) -> Callable:
         signature = inspect.signature(func)
         for param_name, param in signature.parameters.items():
@@ -73,23 +75,27 @@ class JsonMap():
                 bases = [base.__name__ for base in param_type.__bases__]
                 if Prototype.__name__ in bases:
                     print(f"(+) Mapping parameter {param_name} as {param_type.__name__} Prototype")
-                    _class = self.buildClass(param.annotation)
+                    self.__mapper[param_name] = self.buildMapper(param.annotation)
 
         @wraps(func)
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
+        def wrapper(s, package: dict, *a, **k):
+            kwargs = dict()
+            for key in self.__mapper:
+                instance = Prototype()
+                for attr in self.__mapper[key]:
+                    setattr(instance, attr, package.get(attr, None))
+                kwargs[key] = instance
+            return func(s, *a, **kwargs, **k)
         return wrapper
     
-    def buildClass(self, annotation: Type) -> Type:
-        class _class(Prototype):
-            pass
+    def buildMapper(self, annotation: Type) -> Type:
+        mapper = dict()
         for attr in annotation.__dict__:
             if not attr.startswith('__'):  # Filter out special methods and attributes
                 if isinstance(getattr(annotation, attr, None), Prototype.String):
                     print(f"\t(*) Mapping attribute {attr} as Prototype.String")
-                    setattr(_class, attr, annotation.__dict__[attr])
-
-        return _class
+                    mapper[attr] = annotation.__dict__[attr]
+        return mapper
     
 class QServer():
     def __init__(self, interface: str, port: int) -> None:
@@ -126,11 +132,11 @@ class QServer():
         if self.__newConnectionValueMap:
             mappedCode = self.__newConnectionValueMap(loadPackage)
 
-        self.onMappedCode(mappedCode, loadPackage)
+        self.onMappedCode(mappedCode, package=loadPackage)
 
-    def onMappedCode(self, code: T, loadPackage: Any):
+    def onMappedCode(self, code: T, package: Any):
         mappedFunction = Map.getMappedFunction(code)
-        mappedFunction(self, loadPackage)
+        mappedFunction(self, package)
 
 class QuickServer(QServer):
     @Thread()
