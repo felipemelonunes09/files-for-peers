@@ -57,7 +57,8 @@ class Prototype():
             super().__init__()
 
         def parse(self, value):
-            return value
+            compose = dict(value)
+            return compose
 
 class Map(Generic[T]):
     __registry: dict[T, Callable] = dict()
