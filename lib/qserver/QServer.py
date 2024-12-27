@@ -57,7 +57,6 @@ class Prototype():
             super().__init__()
 
         def parse(self, value):
-            print(value)
             return value
 
 class Map(Generic[T]):
@@ -94,7 +93,6 @@ class JsonMap():
                 if Prototype.__name__ in bases:
                     print(f"(+) Mapping parameter {param_name} as {param_type.__name__} Prototype")
                     self.__mapper[param_name] = self.buildMapper(param.annotation)
-                    raise KeyError()
 
         @wraps(func)
         def wrapper(s, package: dict, *a, **k):
@@ -102,7 +100,7 @@ class JsonMap():
             for key in self.__mapper:
                 instance = Prototype()
                 for attr in self.__mapper[key]:
-                    setattr(instance, attr, self.__mapper[key][attr].parse(package[key][attr]))
+                    setattr(instance, attr, self.__mapper[key][attr].parse(package[attr]))
                 kwargs[key] = instance
             return func(s, *a, **kwargs, **k)
         return wrapper
