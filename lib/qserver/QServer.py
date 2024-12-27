@@ -1,3 +1,4 @@
+from datetime import datetime
 import inspect
 import json
 import socket
@@ -23,9 +24,6 @@ class ClientConnection():
         return recv
 
 class Thread():
-    def __init__(self):
-        pass
-
     def __call__(self, func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -36,11 +34,31 @@ class Thread():
         return wrapper
 
 class Prototype():
-    class Property():
-        pass
+    class Property(Generic[T]):
+        @abstractmethod
+        def parse(self, value: Any) -> T:
+            pass
 
-    class String(Property):
-        pass
+    class Int(Property[int]):
+        def parse(self, value):
+            return int(value)
+
+    class String(Property[str]):
+        def parse(self, value):
+            return str(value)
+
+    class DateTime(Property[datetime]):
+        def parse(self, value):
+            return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+
+    class Dict(Property[dict[str, Any]]):
+        
+        def __init__(self, *args, **kwd):
+            super().__init__()
+
+        def parse(self, value):
+            print(value)
+            return value
 
 class Map(Generic[T]):
     __registry: dict[T, Callable] = dict()
@@ -64,7 +82,7 @@ class Map(Generic[T]):
     
 class JsonMap():
     def __init__(self):
-        self.__mapper: dict[str, Prototype.Property] = dict()
+        self.__mapper: dict[str, dict[str, Prototype.Property]] = dict()
         super().__init__()
 
     def __call__(self, func: Callable) -> Callable:
@@ -76,6 +94,7 @@ class JsonMap():
                 if Prototype.__name__ in bases:
                     print(f"(+) Mapping parameter {param_name} as {param_type.__name__} Prototype")
                     self.__mapper[param_name] = self.buildMapper(param.annotation)
+                    raise KeyError()
 
         @wraps(func)
         def wrapper(s, package: dict, *a, **k):
@@ -83,7 +102,7 @@ class JsonMap():
             for key in self.__mapper:
                 instance = Prototype()
                 for attr in self.__mapper[key]:
-                    setattr(instance, attr, package.get(attr, None))
+                    setattr(instance, attr, self.__mapper[key][attr].parse(package[key][attr]))
                 kwargs[key] = instance
             return func(s, *a, **kwargs, **k)
         return wrapper
@@ -92,8 +111,9 @@ class JsonMap():
         mapper = dict()
         for attr in annotation.__dict__:
             if not attr.startswith('__'):  # Filter out special methods and attributes
-                if isinstance(getattr(annotation, attr, None), Prototype.String):
-                    print(f"\t(*) Mapping attribute {attr} as Prototype.String")
+                property = getattr(annotation, attr, None)
+                if isinstance(property, Prototype.Property):
+                    print(f"\t(*) Mapping attribute {attr} as {property.__class__}")
                     mapper[attr] = annotation.__dict__[attr]
         return mapper
     
