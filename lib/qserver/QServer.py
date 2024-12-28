@@ -1,12 +1,12 @@
 from datetime import datetime
 import inspect
 import json
+from queue import Queue
 import socket
 import threading
 from typing import Any, Callable, Type, TypeVar, Generic
 from abc import ABCMeta, abstractmethod
 from functools import wraps
-from enum import Enum
 
 T = TypeVar('T')
 
@@ -116,8 +116,37 @@ class JsonMap():
                     mapper[attr] = annotation.__dict__[attr]
         return mapper
     
+class MappedCallHandler():
+    @abstractmethod
+    def call(self, code: Any, target: Callable, reference: Type, *args):
+        pass
+
+class SimpleCallHandler(MappedCallHandler):
+    def call(self, target: Callable, reference: Type, package: Any):
+        target(s=reference, package=package)
+
+class ConsumerFunctionHandler(MappedCallHandler, Generic[T]):
+    def __init__(self, consumersQuantity: int):
+        self.__consumersQuantity = consumersQuantity
+        self.__pool: list[threading.Thread] = list()
+        self.__queue: Queue[T, Callable, tuple] = Queue()
+
+        for _ in range(self.__consumersQuantity):
+            thread = threading.Thread(target=self.consume)
+            self.__pool.append(thread)
+            thread.start()
+
+    def call(self, code: T, target: Callable, reference: Type, *args):
+        self.__queue.put((code, target, reference, *args))
+        return super().call(code, target, args)
+
+    def consume(self):
+        while True:
+            code, target, reference, args = self.__queue.get()
+            target(s=reference, package=args)
+
 class QServer():
-    def __init__(self, interface: str, port: int) -> None:
+    def __init__(self, interface: str, port: int, mappedFunctionHandler: MappedCallHandler = SimpleCallHandler()) -> None:
         self.__port = port
         self.__inteface = interface
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -125,6 +154,8 @@ class QServer():
         self.__newConnectionDecoder:    Callable = None
         self.__newConnectionLoader:     Callable = None
         self.__newConnectionValueMap:   Callable = None
+
+        self.__mappedFunctionHandler = mappedFunctionHandler
 
     def start(self) -> None:
         self.__socket.bind((self.__inteface, self.__port))
@@ -153,9 +184,9 @@ class QServer():
 
         self.onMappedCode(mappedCode, package=loadPackage)
 
-    def onMappedCode(self, code: T, package: Any):
+    def onMappedCode(self, code: Any, package: Any):
         mappedFunction = Map.getMappedFunction(code)
-        mappedFunction(self, package)
+        self.__mappedFunctionHandler.call(code, mappedFunction, self, package)
 
 class QuickServer(QServer):
     @Thread()
