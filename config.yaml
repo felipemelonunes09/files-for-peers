@@ -1,5 +1,6 @@
 service:
   name: 'files-for-peers'
+  config-name: 'config.yaml'
 fdht: 
   manager:
     ip: "127.0.0.1"
