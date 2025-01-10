@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.pyo
+*.pyd
+*.env
+*.venv
+.env
+.venv
+env/
+venv/
+ENV/
+venv.bak/
+*.log
+
+# JavaScript
+node_modules/
+npm-debug.log
+yarn-error.log
+dist/
+build/
+*.log
+
+# C#
+bin/
+obj/
+*.exe
+*.dll
+*.pdb
+*.user
+*.cache
+*.csproj.user
+.vscode/
+.idea/
+*.suo
+*.userosscache
+*.sln.docstates
