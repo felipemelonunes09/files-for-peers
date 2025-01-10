@@ -3,45 +3,82 @@ import inspect
 import json
 from queue import Queue
 import socket
+import struct
 import threading
 from typing import Any, Callable, Type, TypeVar, Generic
 from abc import ABCMeta, abstractmethod
 from functools import wraps
 
 T = TypeVar('T')
+SOCKET_BUFFER = 1024
 
 class QuickServerMap():
     CLOSE=-1
     PING=0
 
 class MessagePolicy():
-    pass
+    @abstractmethod
+    def receivePackage(self) -> bytes:
+        pass
+
+    @abstractmethod
+    def buildPackage(self) -> bytes:
+        pass
+
 
 class FixedSizeMessagePolicy(MessagePolicy):
     ...
 
-class SizeMessagePolicy(MessagePolicy):
+class DelimiterMessagePolicy(MessagePolicy):
     ...
 
 class HeaderMessagePolicy(MessagePolicy):
-    pass
+    
+    def __init__(self, headerLength: int = 4):
+        self.headerLenght = headerLength
+        super().__init__()
+
+    def receivePackage(self, socket: socket.socket) -> bytes:
+        header = socket.recv(self.headerLenght)
+        data = b''
+        if len(header) < self.headerLenght or socket.fileno() == -1:
+            return data
+        messageSize = struct.unpack('>I', header)[0]
+        while len(data) < messageSize or socket.fileno() != -1:
+            chunk = socket.recv(messageSize - len(data))
+            if not chunk:
+                return b''
+            data += chunk
+        return data
+
+    def buildPackage(self, message: bytes) -> None:
+        header = struct.pack('>I', len(message))
+        print(header)
+        return header + message
 
 class ClientConnection():
-    def __init__(self, socket: socket.socket, address: tuple[str, int], messagePolicy: MessagePolicy) -> None:
+    def __init__(self, socket: socket.socket, address: tuple[str, int], bufSize: int = SOCKET_BUFFER, messagePolicy: MessagePolicy = None) -> None:
         self.__socket = socket
         self.__address = address
+        self.__bufferSize = bufSize
+        self.__messagePolicy = messagePolicy
 
     def package(self) -> bytes:
-        recv = self.__socket.recv(1024)
-        return recv
+        if not self.__messagePolicy:
+            recv = self.__socket.recv(self.__bufferSize)
+            return recv
+        return self.__messagePolicy.receivePackage(self.__socket)
 
+    def close(self):
+        self.__socket.close()
+        
 class Thread():
     def __call__(self, func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
             t = threading.Thread(target=func, args=args, kwargs=kwargs)
             t.start()
-            print("(+) Thread started for function ", func.__name__)
+            print("(+) Thread started for function", func.__name__)
             return func(*args, **kwargs)
         return wrapper
 
@@ -178,7 +215,7 @@ class QServer():
         while True:
             client_socket, address = self.__socket.accept()
             print(f"(+) Connection from {address}")
-            self.onClientConnection(ClientConnection(client_socket, address, self.__messagePolicy))
+            self.onClientConnection(ClientConnection(client_socket, address, messagePolicy=self.__messagePolicy))
 
     def setOnNewConnection(self, decoder: Callable, loader: Callable, valueMap: Callable) -> None:
         self.__newConnectionDecoder  = decoder
@@ -187,19 +224,31 @@ class QServer():
 
     def onClientConnection(self, clientConnection: ClientConnection):
         keepAlive = self.__keepAlive
-        while keepAlive:
+        patience = 5
+        patienceCount = 0
+        while keepAlive and (patienceCount <= patience):
             pack = clientConnection.package()
-            if self.__newConnectionDecoder:
-                decodePackage = self.__newConnectionDecoder(pack)
-            
-            if self.__newConnectionLoader:
-                loadPackage = self.__newConnectionLoader(decodePackage)
-            
-            if self.__newConnectionValueMap:
-                mappedCode = self.__newConnectionValueMap(loadPackage)
+            if len(pack) == 0:
+                patienceCount += 1
+            else:
+                # create a method to decode using to package
+                if self.__newConnectionDecoder:
+                    decodePackage = self.__newConnectionDecoder(pack)
+                    
+                # create a method to load using to package
+                if self.__newConnectionLoader:
+                    loadPackage = self.__newConnectionLoader(decodePackage)
+                    
+                # create a method to map using to package
+                if self.__newConnectionValueMap:
+                    mappedCode = self.__newConnectionValueMap(loadPackage)
 
-            self.onMappedCode(mappedCode, package=loadPackage)
-
+                print(f"(+) Sending to mapped function")
+                self.onMappedCode(mappedCode, package=loadPackage)
+        
+        clientConnection.close()
+        print("(+) Connection closed")
+        return None
     def onMappedCode(self, code: Any, package: Any):
         mappedFunction = Map.getMappedFunction(code)
         self.__mappedFunctionHandler.call(code, mappedFunction, self, package)
@@ -216,7 +265,6 @@ def utf8Decoder(bytes: bytes) -> str:
     return bytes.decode("utf-8")
 
 def jsonLoader(data: str) -> dict:
-    print(data)
     return json.loads(data)
 
 def keyMap(key: str) -> Callable:
