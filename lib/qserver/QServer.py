@@ -14,8 +14,20 @@ class QuickServerMap():
     CLOSE=-1
     PING=0
 
+class MessagePolicy():
+    pass
+
+class FixedSizeMessagePolicy(MessagePolicy):
+    ...
+
+class SizeMessagePolicy(MessagePolicy):
+    ...
+
+class HeaderMessagePolicy(MessagePolicy):
+    pass
+
 class ClientConnection():
-    def __init__(self, socket: socket.socket, address: tuple[str, int]) -> None:
+    def __init__(self, socket: socket.socket, address: tuple[str, int], messagePolicy: MessagePolicy) -> None:
         self.__socket = socket
         self.__address = address
 
@@ -91,8 +103,8 @@ class JsonMap():
             param_type = param.annotation if param.annotation != inspect.Parameter.empty else None
             if isinstance(param_type, type):
                 bases = [base.__name__ for base in param_type.__bases__]
-                if Prototype.__name__ in bases:
-                    print(f"(+) Mapping parameter {param_name} as {param_type.__name__} Prototype")
+                if Prototype.__name__ in bases or Prototype.Property.__name__ in bases:
+                    print(f"(+) Mapping parameter {param_name} as {param_type.__name__} Prototype to function [{func.__name__}]")
                     self.__mapper[param_name] = self.buildMapper(param.annotation)
 
         @wraps(func)
@@ -146,7 +158,7 @@ class ConsumerFunctionHandler(MappedCallHandler, Generic[T]):
             target(s=reference, package=args)
 
 class QServer():
-    def __init__(self, interface: str, port: int, mappedFunctionHandler: MappedCallHandler = SimpleCallHandler()) -> None:
+    def __init__(self, interface: str, port: int, mappedFunctionHandler: MappedCallHandler = SimpleCallHandler(), messagePolicy: MessagePolicy = FixedSizeMessagePolicy() ) -> None:
         self.__port = port
         self.__inteface = interface
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -156,6 +168,7 @@ class QServer():
         self.__newConnectionValueMap:   Callable = None
 
         self.__mappedFunctionHandler = mappedFunctionHandler
+        self.__messagePolicy: MessagePolicy = messagePolicy
 
     def start(self) -> None:
         self.__socket.bind((self.__inteface, self.__port))
@@ -164,7 +177,7 @@ class QServer():
         while True:
             client_socket, address = self.__socket.accept()
             print(f"(+) Connection from {address}")
-            self.onClientConnection(ClientConnection(client_socket, address))
+            self.onClientConnection(ClientConnection(client_socket, address, self.__messagePolicy))
 
     def setOnNewConnection(self, decoder: Callable, loader: Callable, valueMap: Callable) -> None:
         self.__newConnectionDecoder  = decoder
@@ -188,6 +201,9 @@ class QServer():
         mappedFunction = Map.getMappedFunction(code)
         self.__mappedFunctionHandler.call(code, mappedFunction, self, package)
 
+    def setMessagePolicy(self, messagePolicy: MessagePolicy):
+        self.__messagePolicy = messagePolicy
+
 class QuickServer(QServer):
     @Thread()
     def onClientConnection(self, clientConnection: ClientConnection):
@@ -197,6 +213,7 @@ def utf8Decoder(bytes: bytes) -> str:
     return bytes.decode("utf-8")
 
 def jsonLoader(data: str) -> dict:
+    print(data)
     return json.loads(data)
 
 def keyMap(key: str) -> Callable:
