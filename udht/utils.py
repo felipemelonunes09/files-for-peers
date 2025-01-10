@@ -1,8 +1,8 @@
 
-from enum import Enum
 import logging
-from logging.handlers import TimedRotatingFileHandler
 import os
+from logging.handlers import TimedRotatingFileHandler
+
 
 def get_logger(name: str) -> logging.Logger:
     os.makedirs("logs", exist_ok=True)
