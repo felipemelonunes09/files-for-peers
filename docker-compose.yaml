@@ -1,8 +1,13 @@
-version: "3.8"
 services:
   udht-manager:
-  udht-sync:
-  fdht-manager:
-  dfht-sync:
-  blockchain:
-  
+    build:
+      context: './udht'
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yaml:/config.yaml
+    #udht-sync:
+  #fdht-manager:   
+  #dfht-sync:
+  #blockchain:
