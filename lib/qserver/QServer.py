@@ -158,7 +158,7 @@ class ConsumerFunctionHandler(MappedCallHandler, Generic[T]):
             target(s=reference, package=args)
 
 class QServer():
-    def __init__(self, interface: str, port: int, mappedFunctionHandler: MappedCallHandler = SimpleCallHandler(), messagePolicy: MessagePolicy = FixedSizeMessagePolicy() ) -> None:
+    def __init__(self, interface: str, port: int, keepAlive: bool = False, mappedFunctionHandler: MappedCallHandler = SimpleCallHandler(), messagePolicy: MessagePolicy = FixedSizeMessagePolicy() ) -> None:
         self.__port = port
         self.__inteface = interface
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -169,6 +169,7 @@ class QServer():
 
         self.__mappedFunctionHandler = mappedFunctionHandler
         self.__messagePolicy: MessagePolicy = messagePolicy
+        self.__keepAlive = keepAlive
 
     def start(self) -> None:
         self.__socket.bind((self.__inteface, self.__port))
@@ -185,17 +186,19 @@ class QServer():
         self.__newConnectionValueMap = valueMap
 
     def onClientConnection(self, clientConnection: ClientConnection):
-        pack = clientConnection.package()
-        if self.__newConnectionDecoder:
-            decodePackage = self.__newConnectionDecoder(pack)
-        
-        if self.__newConnectionLoader:
-            loadPackage = self.__newConnectionLoader(decodePackage)
-        
-        if self.__newConnectionValueMap:
-            mappedCode = self.__newConnectionValueMap(loadPackage)
+        keepAlive = self.__keepAlive
+        while keepAlive:
+            pack = clientConnection.package()
+            if self.__newConnectionDecoder:
+                decodePackage = self.__newConnectionDecoder(pack)
+            
+            if self.__newConnectionLoader:
+                loadPackage = self.__newConnectionLoader(decodePackage)
+            
+            if self.__newConnectionValueMap:
+                mappedCode = self.__newConnectionValueMap(loadPackage)
 
-        self.onMappedCode(mappedCode, package=loadPackage)
+            self.onMappedCode(mappedCode, package=loadPackage)
 
     def onMappedCode(self, code: Any, package: Any):
         mappedFunction = Map.getMappedFunction(code)
