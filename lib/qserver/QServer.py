@@ -36,15 +36,18 @@ class HeaderMessagePolicy(MessagePolicy):
     
     def __init__(self, headerLength: int = 4):
         self.headerLenght = headerLength
+        self.minBytes = headerLength
         super().__init__()
 
     def receivePackage(self, socket: socket.socket) -> bytes:
-        header = socket.recv(self.headerLenght)
-        data = b''
-        if len(header) < self.headerLenght or socket.fileno() == -1:
-            return data
+        data = socket.recv(self.minBytes)
+        header = data[:self.headerLenght]
+        data = data[self.headerLenght:]
+
+        if len(header) < self.headerLenght:
+            return b''
         messageSize = struct.unpack('>I', header)[0]
-        while len(data) < messageSize or socket.fileno() != -1:
+        while len(data) < messageSize and socket.fileno() != -1:
             chunk = socket.recv(messageSize - len(data))
             if not chunk:
                 return b''
@@ -53,7 +56,6 @@ class HeaderMessagePolicy(MessagePolicy):
 
     def buildPackage(self, message: bytes) -> None:
         header = struct.pack('>I', len(message))
-        print(header)
         return header + message
 
 class ClientConnection():
@@ -77,9 +79,8 @@ class Thread():
         @wraps(func)
         def wrapper(*args, **kwargs):
             t = threading.Thread(target=func, args=args, kwargs=kwargs)
-            t.start()
             print("(+) Thread started for function", func.__name__)
-            return func(*args, **kwargs)
+            t.start()
         return wrapper
 
 class Prototype():
@@ -215,6 +216,8 @@ class QServer():
         while True:
             client_socket, address = self.__socket.accept()
             print(f"(+) Connection from {address}")
+            #thread = threading.Thread(target=self.onClientConnection, args=(ClientConnection(client_socket, address, messagePolicy=self.__messagePolicy),))
+            #thread.start()
             self.onClientConnection(ClientConnection(client_socket, address, messagePolicy=self.__messagePolicy))
 
     def setOnNewConnection(self, decoder: Callable, loader: Callable, valueMap: Callable) -> None:
@@ -245,7 +248,6 @@ class QServer():
 
                 print(f"(+) Sending to mapped function")
                 self.onMappedCode(mappedCode, package=loadPackage)
-        
         clientConnection.close()
         print("(+) Connection closed")
         return None
