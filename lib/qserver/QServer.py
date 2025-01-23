@@ -88,6 +88,10 @@ class Prototype():
         @abstractmethod
         def parse(self, value: Any) -> T:
             pass
+        
+    class Boolean(Property[bool]):
+        def parse(self, value):
+            return bool(value)
 
     class Int(Property[int]):
         def parse(self, value):
