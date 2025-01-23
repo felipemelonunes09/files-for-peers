@@ -129,10 +129,16 @@ class Map(Generic[T]):
         if code not in cls.__registry:
             raise KeyError(f'Code {code} not mapped in @Map decorator')
         return cls.__registry[code]
-    
+
+class ParamMap():
+    def __init__(self, isproperty: bool, property: Prototype.Property, scheme: dict[str, Prototype.Property]):
+        self.isproperty = isproperty
+        self.property = property
+        self.scheme = scheme
+
 class JsonMap():
     def __init__(self):
-        self.__mapper: dict[str, dict[str, Prototype.Property]] = dict()
+        self.__mapper: dict[str, ParamMap] = dict()
         super().__init__()
 
     def __call__(self, func: Callable) -> Callable:
@@ -149,22 +155,33 @@ class JsonMap():
         def wrapper(s, package: dict, *a, **k):
             kwargs = dict()
             for key in self.__mapper:
-                instance = Prototype()
-                for attr in self.__mapper[key]:
-                    setattr(instance, attr, self.__mapper[key][attr].parse(package[attr]))
-                kwargs[key] = instance
+                attribute_map = self.__mapper[key]
+                if attribute_map.isproperty:
+                    kwargs[key] = self.__mapper[key].property.parse(value=package[key])
+                else:
+                    instance = Prototype()
+                    for attr in self.__mapper[key].scheme:
+                        setattr(instance, attr, self.__mapper[key].scheme[attr].parse(package[attr]))
+                    kwargs[key] = instance
             return func(s, *a, **kwargs, **k)
         return wrapper
     
-    def buildMapper(self, annotation: Type) -> Type:
-        mapper = dict()
-        for attr in annotation.__dict__:
-            if not attr.startswith('__'):  # Filter out special methods and attributes
-                property = getattr(annotation, attr, None)
-                if isinstance(property, Prototype.Property):
-                    print(f"\t(*) Mapping attribute {attr} as {property.__class__}")
-                    mapper[attr] = annotation.__dict__[attr]
-        return mapper
+    def buildMapper(self, annotation: Type) -> ParamMap:
+        bases = list(annotation.__bases__)
+        isproperty = Prototype.Property in bases
+        scheme = dict()
+        property = None
+        if isproperty:
+            print(f"\t(*) Mapping property {annotation}")
+            property = annotation()
+        else:
+            for attr in annotation.__dict__:
+                if not attr.startswith('__'):  # Filter out special methods and attributes
+                    prop = getattr(annotation, attr, None)
+                    if isinstance(prop, Prototype.Property):
+                        print(f"\t(*) Mapping attribute {attr} as {prop.__class__}")
+                        scheme[attr] = prop
+        return ParamMap(isproperty=isproperty, property=property, scheme=scheme)
     
 class MappedCallHandler():
     @abstractmethod
@@ -184,6 +201,7 @@ class ConsumerFunctionHandler(MappedCallHandler, Generic[T]):
         for _ in range(self.__consumersQuantity):
             thread = threading.Thread(target=self.consume)
             self.__pool.append(thread)
+            print(f"(+) Consumers thread started id: {id(thread)}")
             thread.start()
 
     def call(self, code: T, target: Callable, reference: Type, *args):
