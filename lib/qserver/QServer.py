@@ -140,7 +140,7 @@ class ParamMap():
         self.property = property
         self.scheme = scheme
 
-class JsonMap():
+class PrototypeMap():
     def __init__(self):
         self.__mapper: dict[str, ParamMap] = dict()
         super().__init__()
