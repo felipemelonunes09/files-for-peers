@@ -1,11 +1,12 @@
-from datetime import datetime
+from __future__ import annotations
 import inspect
 import json
-from queue import Queue
 import socket
 import struct
 import threading
-from typing import Any, Callable, Type, TypeVar, Generic
+from datetime import datetime
+from queue import Queue
+from typing import Any, Callable, Self, Type, TypeVar, Generic
 from abc import ABCMeta, abstractmethod
 from functools import wraps
 
@@ -113,6 +114,10 @@ class Prototype():
         def parse(self, value):
             compose = dict(value)
             return compose
+        
+    def __str__(self) -> str:
+        return str(self.__dict__)
+        
 
 class Map(Generic[T]):
     __registry: dict[T, Callable] = dict()
