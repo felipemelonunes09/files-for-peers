@@ -49,11 +49,13 @@ class Server(QuickServer):
             pubFile.write(publicKey.save_pkcs1())
         
         with open(f"{keysDir}/private_key.pem", "wb") as privFile:
-            privFile.write(privateKey.save.pkcs1())
+            privFile.write(privateKey.save_pkcs1())
 
-        clientConnection.sendPackage(Prototype | dict | str | int)
-        clientConnection.sendAndClose()
-        
+        clientConnection.sendPackage(JsonPackage(
+            payload={},
+            msg="Created with success",
+            statusCode=1
+        ))
 
 
 

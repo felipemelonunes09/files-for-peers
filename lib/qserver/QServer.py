@@ -190,7 +190,7 @@ class PrototypeMap():
                     self.__mapper[param_name] = self.buildMapper(param.annotation)
 
         @wraps(func)
-        def wrapper(s, package: dict, *a, **k):
+        def wrapper(reference, package, **k):
             kwargs = dict()
             for key in self.__mapper:
                 attribute_map = self.__mapper[key]
@@ -199,9 +199,10 @@ class PrototypeMap():
                 else:
                     instance = Prototype()
                     for attr in self.__mapper[key].scheme:
+                        print(package)
                         setattr(instance, attr, self.__mapper[key].scheme[attr].parse(package[attr]))
                     kwargs[key] = instance
-            return func(s, *a, **kwargs, **k)
+            return func(reference, **kwargs, **k)
         return wrapper
     
     def buildMapper(self, annotation: Type) -> ParamMap:
@@ -242,14 +243,14 @@ class ConsumerFunctionHandler(MappedCallHandler, Generic[T]):
             print(f"(+) Consumers thread started id: {id(thread)}")
             thread.start()
 
-    def call(self, code: T, target: Callable, reference: Type, *args):
-        self.__queue.put((code, target, reference, *args))
-        return super().call(code, target, args)
+    def call(self, code: T, target: Callable, reference: Type, functionParameters: dict):
+        self.__queue.put((code, target, reference, functionParameters))
+        return super().call(code, target, functionParameters)
 
     def consume(self):
         while True:
             code, target, reference, args = self.__queue.get()
-            target(s=reference, package=args)
+            target(s=reference, **args)
 
 class QServer():
     def __init__(self, interface: str, port: int, keepAlive: bool = False, mappedFunctionHandler: MappedCallHandler = SimpleCallHandler(), messagePolicy: MessagePolicy = FixedSizeMessagePolicy() ) -> None:
@@ -303,13 +304,15 @@ class QServer():
                     mappedCode = self.__newConnectionValueMap(loadPackage)
 
                 print(f"(+) Sending to mapped function")
-                self.onMappedCode(mappedCode, package=loadPackage)
+                self.onMappedCode(code=mappedCode, clientConnection=clientConnection, package=loadPackage)
         clientConnection.close()
         print("(+) Connection closed")
         return None
-    def onMappedCode(self, code: Any, package: Any):
+    
+    def onMappedCode(self, code: Any, **k):
         mappedFunction = Map.getMappedFunction(code)
-        self.__mappedFunctionHandler.call(code, mappedFunction, self, package)
+        print(k)
+        self.__mappedFunctionHandler.call(code, mappedFunction, self, k)
 
     def setMessagePolicy(self, messagePolicy: MessagePolicy):
         self.__messagePolicy = messagePolicy

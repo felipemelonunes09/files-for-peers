@@ -1,5 +1,6 @@
 import json
 import uuid
+from enum import Enum
 from utils import get_logger
 from core.DHTService import DHTService
 from typing import List
@@ -8,8 +9,6 @@ from queue import Queue
 from socket import *
 import threading
 import globals
-
-from enum import Enum
 
 class Server:
     class ClientState(Enum):

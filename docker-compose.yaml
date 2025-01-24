@@ -1,13 +1,14 @@
 services:
   udht-manager:
     build:
-      context: './udht'
-      dockerfile: Dockerfile
+      context: '.'
+      dockerfile: Udht.Dockerfile
     ports:
       - "8080:8080"
     volumes:
       - ./config.yaml:/config.yaml
-    #udht-sync:
-  #fdht-manager:   
-  #dfht-sync:
-  #blockchain:
+
+#udht-sync:
+#fdht-manager:   
+#dfht-sync:
+#blockchain:
