@@ -34,7 +34,7 @@ class Server(QuickServer):
 
     @Map[int](ServerMap.CREATE_IDENTITY)
     @PrototypeMap()
-    def registerIdentity(self, peer: Peer, keysDir: Prototype.String):
+    def registerIdentity(self, clientConnection: ClientConnection, peer: Peer, keysDir: Prototype.String):
 
         ## validation
 
@@ -45,6 +45,15 @@ class Server(QuickServer):
         peerHash.update(str(peer).encode(Server.SERVER_ENCODING))
         peerHash = peerHash.hexdigest()
 
+        with open(f"{keysDir}/public_key.pem", "wb") as pubFile:
+            pubFile.write(publicKey.save_pkcs1())
+        
+        with open(f"{keysDir}/private_key.pem", "wb") as privFile:
+            privFile.write(privateKey.save.pkcs1())
+
+        clientConnection.sendPackage(Prototype | dict | str | int)
+        clientConnection.sendAndClose()
+        
 
 
 
