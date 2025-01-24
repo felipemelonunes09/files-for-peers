@@ -58,6 +58,26 @@ class HeaderMessagePolicy(MessagePolicy):
     def buildPackage(self, message: bytes) -> None:
         header = struct.pack('>I', len(message))
         return header + message
+    
+class Package():
+    def __init__(self, payload: object, msg: str, statusCode: int):
+        self.payload = payload
+        self.msg = msg
+        self.statusCode = statusCode
+
+    def serialize(self) -> str:
+        return f"{self.msg},{self.statusCode},{str(self.payload)}"
+
+    def encode(self, encoding: str) -> bytes:
+        return self.serialize().encode(encoding=encoding)
+
+class JsonPackage(Package):
+    def serialize(self):
+        return json.dumps({
+            "status": self.statusCode,
+            "message": self.msg,
+            "payload": self.payload
+        })
 
 class ClientConnection():
     def __init__(self, socket: socket.socket, address: tuple[str, int], bufSize: int = SOCKET_BUFFER, messagePolicy: MessagePolicy = None) -> None:
@@ -71,6 +91,15 @@ class ClientConnection():
             recv = self.__socket.recv(self.__bufferSize)
             return recv
         return self.__messagePolicy.receivePackage(self.__socket)
+    
+    def sendPackage(self, package: Package):
+        if not self.__messagePolicy:
+            self.__socket.sendall(package.encode())
+        self.__messagePolicy.buildPackage(package, self.__socket)
+
+    def sendAndClose(self, package: Package):
+        self.sendPackage(package)
+        self.close()
 
     def close(self):
         self.__socket.close()
