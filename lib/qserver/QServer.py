@@ -19,11 +19,11 @@ class QuickServerMap():
 
 class MessagePolicy():
     @abstractmethod
-    def receivePackage(self) -> bytes:
+    def receivePackage(self, socket: socket.socket) -> bytes:
         pass
 
     @abstractmethod
-    def buildPackage(self) -> bytes:
+    def buildPackage(self, message: bytes, socket: socket.socket) -> bytes:
         pass
 
 
@@ -55,7 +55,7 @@ class HeaderMessagePolicy(MessagePolicy):
             data += chunk
         return data
 
-    def buildPackage(self, message: bytes) -> None:
+    def buildPackage(self, message: bytes) -> bytes:
         header = struct.pack('>I', len(message))
         return header + message
     
@@ -69,6 +69,8 @@ class Package():
         return f"{self.msg},{self.statusCode},{str(self.payload)}"
 
     def encode(self, encoding: str) -> bytes:
+        print("============")
+        print(self.serialize().encode(encoding=encoding))
         return self.serialize().encode(encoding=encoding)
 
 class JsonPackage(Package):
@@ -85,6 +87,7 @@ class ClientConnection():
         self.__address = address
         self.__bufferSize = bufSize
         self.__messagePolicy = messagePolicy
+        self.encoder = "utf-8"
 
     def package(self) -> bytes:
         if not self.__messagePolicy:
@@ -94,8 +97,10 @@ class ClientConnection():
     
     def sendPackage(self, package: Package):
         if not self.__messagePolicy:
-            self.__socket.sendall(package.encode())
-        self.__messagePolicy.buildPackage(package, self.__socket)
+            self.__socket.sendall(package.encode(self.encoder))
+            return 
+        bytes = self.__messagePolicy.buildPackage(message=package.encode(self.encoder))
+        self.__socket.sendall(bytes)
 
     def sendAndClose(self, package: Package):
         self.sendPackage(package)
@@ -305,13 +310,13 @@ class QServer():
 
                 print(f"(+) Sending to mapped function")
                 self.onMappedCode(code=mappedCode, clientConnection=clientConnection, package=loadPackage)
+        print("closing socket")
         clientConnection.close()
         print("(+) Connection closed")
         return None
     
     def onMappedCode(self, code: Any, **k):
         mappedFunction = Map.getMappedFunction(code)
-        print(k)
         self.__mappedFunctionHandler.call(code, mappedFunction, self, k)
 
     def setMessagePolicy(self, messagePolicy: MessagePolicy):
