@@ -1,11 +1,12 @@
+from enum import Enum
 import sys
 import rsa
 import hashlib
 from QServer import *
 
 class Peer(Prototype):
-    name        = Prototype.String()
-    ip          = Prototype.String()
+    name        = Prototype.String(minSize=3, maxSize=100)
+    ip          = Prototype.String(pattern="")
     createdAt   = Prototype.DateTime()
     updatedAt   = Prototype.DateTime()
     meta        = Prototype.Dict(
@@ -13,12 +14,13 @@ class Peer(Prototype):
         peerHash      = Prototype.String()
     )
     ports        = Prototype.Dict(
-        udhtSync = Prototype.String(),
-        fdhtSync = Prototype.String(),
-        service  = Prototype.String()
+        udhtSync = Prototype.String(patten=""),
+        fdhtSync = Prototype.String(patten=""),
+        service  = Prototype.String(pattern="")
     )
 
 class Server(QuickServer):
+    IDENTITY_DIRECTORY = "data/identity/"
     class ServerMap(QuickServerMap):
         SEND_HASH_TABLE = 2
         ADD_PEER        = 3
@@ -28,14 +30,17 @@ class Server(QuickServer):
         GET_PEER        = 7
         SEND_IDENTITY   = 8
         CREATE_IDENTITY = 9
-    
+
+    class ServerCode(Enum):
+        CREATED_WITH_SUCCESS = 1
+
     RSA_KEYS_SIZE: int = 512
     SERVER_ENCODING = "utf-8"
 
     @Map[int](ServerMap.CREATE_IDENTITY)
     @PrototypeMap()
     def registerIdentity(self, clientConnection: ClientConnection, peer: Peer, keysDir: Prototype.String):
-
+        print("=================================== here =====================================")
         ## validation
 
         ## logic
@@ -45,19 +50,17 @@ class Server(QuickServer):
         peerHash.update(str(peer).encode(Server.SERVER_ENCODING))
         peerHash = peerHash.hexdigest()
 
-        with open(f"{keysDir}/public_key.pem", "wb") as pubFile:
+        with open(f"./data/identity/public_key.pem", "wb") as pubFile:
             pubFile.write(publicKey.save_pkcs1())
         
-        with open(f"{keysDir}/private_key.pem", "wb") as privFile:
+        with open(f"data/identity/private_key.pem", "wb") as privFile:
             privFile.write(privateKey.save_pkcs1())
 
         clientConnection.sendPackage(JsonPackage(
             payload={},
-            msg="Created with success",
-            statusCode=1
+            msg="Created with success on directory",
+            statusCode=Server.ServerCode.CREATED_WITH_SUCCESS
         ))
-
-
 
     @Map[int](ServerMap.ADD_PEER)
     @PrototypeMap()
