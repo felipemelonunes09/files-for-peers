@@ -122,7 +122,7 @@ class Thread():
         return wrapper
     
 class Prototype(): 
-    class Property(Generic[T]):
+    class Property(Generic[T], ABC):
         def __init__(self, **k):
             self.arguments = k
             super().__init__()
@@ -131,12 +131,18 @@ class Prototype():
         def parse(self, value: Any) -> T:
             pass
 
-        @abstractmethod
         def validate(self, value: T):
             pass
 
     class MeasurableProperty(Property[T], ABC):
         def validate(self, value: T):
+            dprint(f"(*) Validation of {value}")
+            minSize = self.arguments.get("minSize", None)
+            maxSize = self.arguments.get("maxSize", None)
+            if minSize and len(value) < minSize:
+                raise ValueError("The value is less than the specified minimum " + str(minSize))
+            if maxSize and len(value) > maxSize:
+                raise ValueError("The value is greater than the specified maximum " + str(maxSize))
             return super().validate(value)
         
     class Boolean(Property[bool]):
@@ -154,7 +160,7 @@ class Prototype():
     class DateTime(Property[datetime]):
         def parse(self, value):
             return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-
+        
     class Dict(Property[dict[str, Any]]):
         
         def __init__(self, *args, **kwd):
@@ -205,8 +211,7 @@ class PrototypeMap():
             param_type = param.annotation if param.annotation != inspect.Parameter.empty else None
             dprint(f"(*) Type: {param_type} inspected on signature ")
             if isinstance(param_type, type):
-                bases = [base.__name__ for base in param_type.__bases__]
-                dprint(f"\t (*) param_type is a instance of type with bases: {bases}")
+                dprint(f"\t (*) param_type is a instance of type with __mro__: {param_type.__mro__}")
                 if Prototype in param_type.__mro__ or Prototype.Property in param_type.__mro__:
                     print(f"(+) Mapping parameter {param_name} as {param_type.__name__} Prototype to function [{func.__name__}]")
                     self.__mapper[param_name] = self.buildMapper(param.annotation)
@@ -224,7 +229,9 @@ class PrototypeMap():
                 else:
                     instance = Prototype()
                     for attr in self.__mapper[key].scheme:
-                        setattr(instance, attr, self.__mapper[key].scheme[attr].parse(package[attr]))
+                        value = self.__mapper[key].scheme[attr].parse(package[attr])
+                        self.__mapper[key].scheme[attr].validate(value)
+                        setattr(instance, attr, value)
                     kwargs[key] = instance
             return func(reference, **kwargs, **k)
         return wrapper
