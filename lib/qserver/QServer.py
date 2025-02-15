@@ -7,7 +7,7 @@ import threading
 from datetime import datetime
 from queue import Queue
 from typing import Any, Callable, Self, Type, TypeVar, Generic
-from abc import ABCMeta, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 from functools import wraps
 
 T = TypeVar('T')
@@ -69,8 +69,6 @@ class Package():
         return f"{self.msg},{self.statusCode},{str(self.payload)}"
 
     def encode(self, encoding: str) -> bytes:
-        print("============")
-        print(self.serialize().encode(encoding=encoding))
         return self.serialize().encode(encoding=encoding)
 
 class JsonPackage(Package):
@@ -117,22 +115,34 @@ class Thread():
             print("(+) Thread started for function", func.__name__)
             t.start()
         return wrapper
-
-class Prototype():
+    
+class Prototype(): 
     class Property(Generic[T]):
+        def __init__(self, **k):
+            self.arguments = k
+            super().__init__()
+
         @abstractmethod
         def parse(self, value: Any) -> T:
             pass
+
+        @abstractmethod
+        def validate(self, value: T):
+            pass
+
+    class MeasurableProperty(Property[T], ABC):
+        def validate(self, value: T):
+            return super().validate(value)
         
     class Boolean(Property[bool]):
         def parse(self, value):
             return bool(value)
-
+    
     class Int(Property[int]):
         def parse(self, value):
             return int(value)
 
-    class String(Property[str]):
+    class String(MeasurableProperty[str]):
         def parse(self, value):
             return str(value)
 
@@ -200,11 +210,12 @@ class PrototypeMap():
             for key in self.__mapper:
                 attribute_map = self.__mapper[key]
                 if attribute_map.isproperty:
-                    kwargs[key] = self.__mapper[key].property.parse(value=package[key])
+                    value = self.__mapper[key].property.parse(value=package[key])
+                    self.__mapper[key].property.validate(value)
+                    kwargs[key] = value
                 else:
                     instance = Prototype()
                     for attr in self.__mapper[key].scheme:
-                        print(package)
                         setattr(instance, attr, self.__mapper[key].scheme[attr].parse(package[attr]))
                     kwargs[key] = instance
             return func(reference, **kwargs, **k)
@@ -278,8 +289,6 @@ class QServer():
         while True:
             client_socket, address = self.__socket.accept()
             print(f"(+) Connection from {address}")
-            #thread = threading.Thread(target=self.onClientConnection, args=(ClientConnection(client_socket, address, messagePolicy=self.__messagePolicy),))
-            #thread.start()
             self.onClientConnection(ClientConnection(client_socket, address, messagePolicy=self.__messagePolicy))
 
     def setOnNewConnection(self, decoder: Callable, loader: Callable, valueMap: Callable) -> None:
@@ -296,15 +305,15 @@ class QServer():
             if len(pack) == 0:
                 patienceCount += 1
             else:
-                # create a method to decode using to package
+                # create a method to decode using the package
                 if self.__newConnectionDecoder:
                     decodePackage = self.__newConnectionDecoder(pack)
                     
-                # create a method to load using to package
+                # create a method to load using the package
                 if self.__newConnectionLoader:
                     loadPackage = self.__newConnectionLoader(decodePackage)
                     
-                # create a method to map using to package
+                # create a method to map using the package
                 if self.__newConnectionValueMap:
                     mappedCode = self.__newConnectionValueMap(loadPackage)
 
