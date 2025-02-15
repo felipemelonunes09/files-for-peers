@@ -12,7 +12,7 @@ from functools import wraps
 
 T = TypeVar('T')
 SOCKET_BUFFER = 1024
-DEBUG = True
+DEBUG = False
 
 def dprint(*args, **kwargs):
     if DEBUG:
@@ -120,8 +120,26 @@ class Thread():
             print("(+) Thread started for function", func.__name__)
             t.start()
         return wrapper
-    
+
+class Validator():
+    class SizeValidator():
+        @staticmethod
+        def validate(value: object, arguments: dict):
+            dprint(f"(*) Validation of {value}")
+            minSize = arguments.get("minSize", None)
+            maxSize = arguments.get("maxSize", None)
+            if minSize and len(value) < minSize:
+                raise ValueError("The value is less than the specified minimum " + str(minSize))
+            if maxSize and len(value) > maxSize:
+                raise ValueError("The value is greater than the specified maximum " + str(maxSize))
+
+    class PatternValidator():
+        @staticmethod
+        def validate(value: object, arguments: dict):
+            pass
+
 class Prototype(): 
+
     class Property(Generic[T], ABC):
         def __init__(self, **k):
             self.arguments = k
@@ -133,17 +151,6 @@ class Prototype():
 
         def validate(self, value: T):
             pass
-
-    class MeasurableProperty(Property[T], ABC):
-        def validate(self, value: T):
-            dprint(f"(*) Validation of {value}")
-            minSize = self.arguments.get("minSize", None)
-            maxSize = self.arguments.get("maxSize", None)
-            if minSize and len(value) < minSize:
-                raise ValueError("The value is less than the specified minimum " + str(minSize))
-            if maxSize and len(value) > maxSize:
-                raise ValueError("The value is greater than the specified maximum " + str(maxSize))
-            return super().validate(value)
         
     class Boolean(Property[bool]):
         def parse(self, value):
@@ -151,11 +158,16 @@ class Prototype():
     
     class Int(Property[int]):
         def parse(self, value):
+            Validator.SizeValidator.validate(value, self.arguments)
             return int(value)
 
-    class String(MeasurableProperty[str]):
+    class String(Property[str]):
         def parse(self, value):
             return str(value)
+        
+        def validate(self, value):
+            Validator.SizeValidator.validate(value, self.arguments)
+            return super().validate(value)
 
     class DateTime(Property[datetime]):
         def parse(self, value):
