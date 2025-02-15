@@ -12,6 +12,11 @@ from functools import wraps
 
 T = TypeVar('T')
 SOCKET_BUFFER = 1024
+DEBUG = True
+
+def sprint(*args, **kwargs):
+    if DEBUG:
+        print(*args, **kwargs)
 
 class QuickServerMap():
     CLOSE=-1
@@ -198,6 +203,7 @@ class PrototypeMap():
         signature = inspect.signature(func)
         for param_name, param in signature.parameters.items():
             param_type = param.annotation if param.annotation != inspect.Parameter.empty else None
+            sprint(f"(*) Type: {param_type} inspected on signature")
             if isinstance(param_type, type):
                 bases = [base.__name__ for base in param_type.__bases__]
                 if Prototype.__name__ in bases or Prototype.Property.__name__ in bases:
