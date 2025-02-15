@@ -14,7 +14,7 @@ T = TypeVar('T')
 SOCKET_BUFFER = 1024
 DEBUG = True
 
-def sprint(*args, **kwargs):
+def dprint(*args, **kwargs):
     if DEBUG:
         print(*args, **kwargs)
 
@@ -203,10 +203,11 @@ class PrototypeMap():
         signature = inspect.signature(func)
         for param_name, param in signature.parameters.items():
             param_type = param.annotation if param.annotation != inspect.Parameter.empty else None
-            sprint(f"(*) Type: {param_type} inspected on signature")
+            dprint(f"(*) Type: {param_type} inspected on signature ")
             if isinstance(param_type, type):
                 bases = [base.__name__ for base in param_type.__bases__]
-                if Prototype.__name__ in bases or Prototype.Property.__name__ in bases:
+                dprint(f"\t (*) param_type is a instance of type with bases: {bases}")
+                if Prototype in param_type.__mro__ or Prototype.Property in param_type.__mro__:
                     print(f"(+) Mapping parameter {param_name} as {param_type.__name__} Prototype to function [{func.__name__}]")
                     self.__mapper[param_name] = self.buildMapper(param.annotation)
 
@@ -215,6 +216,7 @@ class PrototypeMap():
             kwargs = dict()
             for key in self.__mapper:
                 attribute_map = self.__mapper[key]
+                dprint(f"(*) Building for attribute {attribute_map}")
                 if attribute_map.isproperty:
                     value = self.__mapper[key].property.parse(value=package[key])
                     self.__mapper[key].property.validate(value)
