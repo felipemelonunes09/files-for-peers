@@ -1,5 +1,7 @@
 # Files for Peers Project
 
+Status: In Development
+
 This project aims to utilize a decentralized network for peer-to-peer file sharing, leveraging blockchain to store and validate transactions between peers. The system comprises four main components:
 
  - **UDHT** (Users Distributed Hash Table) - a hash table structure that holds peer information, enabling peer connections, information sharing, and network-wide peer updates.
