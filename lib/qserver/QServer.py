@@ -262,7 +262,7 @@ class PrototypeMap():
                     self.__mapper[param_name] = self.buildMapper(param.annotation)
 
         @wraps(func)
-        def wrapper(reference, package, **k):
+        def wrapper(reference, package: dict, **k):
             kwargs = dict()
             for key in self.__mapper:
                 attribute_map = self.__mapper[key]
@@ -273,7 +273,15 @@ class PrototypeMap():
                 else:
                     instance = Prototype()
                     for attr in self.__mapper[key].scheme:
-                        value = self.__mapper[key].scheme[attr].parse(package[attr])
+                        packageValue = package.get(attr)
+                        if packageValue:
+                            value = self.__mapper[key].scheme[attr].parse(packageValue)
+                        else:
+                            optional = self.__mapper[key].scheme[attr].arguments.get("optional", False)
+                            if optional:
+                                value = None
+                            else:
+                                raise KeyError(attr)
                         setattr(instance, attr, value)
                     setattr(instance, "__scheme__", self.__mapper[key].scheme)
                     kwargs[key] = instance
