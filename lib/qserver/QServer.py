@@ -1,6 +1,7 @@
 from __future__ import annotations
 import inspect
 import json
+import re
 import socket
 import struct
 import threading
@@ -131,7 +132,7 @@ class Validator():
     class SizeValidator():
         @staticmethod
         def validate(value: object, arguments: dict) -> tuple[bool, ValueError | None]:
-            dprint(f"(*) Validation of {value}")
+            dprint(f"\t(*) Size validation of {value} with arguments: {arguments}")
             minSize = arguments.get("minSize", None)
             maxSize = arguments.get("maxSize", None)
             if minSize and len(value) < minSize:
@@ -142,8 +143,12 @@ class Validator():
 
     class PatternValidator():
         @staticmethod
-        def validate(value: object, arguments: dict) -> bool:
-            pass
+        def validate(value: object, arguments: dict) -> tuple[bool, ValueError | None]:
+            dprint(f"\t(*) Pattern validation of {value} with arguments: {arguments}")
+            pattern = arguments.get("pattern", None)
+            if pattern and not re.match(pattern, value):
+                return False, ValueError("The value do not match with the pattern " + str(pattern))
+            return True, None
 
 class Prototype(): 
 
@@ -182,7 +187,7 @@ class Prototype():
             return int(value)
 
     class String(Property[str]):
-        __validators = [Validator.SizeValidator]
+        __validators = [Validator.SizeValidator, Validator.PatternValidator]
         def parse(self, value):
             return str(value)
         
