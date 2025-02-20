@@ -177,6 +177,11 @@ class Prototype():
         def validate(self, value: T) -> tuple[bool, ValueError | None]:
             return True, None
 
+        def updateArgs(self, **k) -> Self:
+            for key in k:
+                self.arguments[key] = k[key]
+            return self
+
     class Boolean(Property[bool]):
         def parse(self, value):
             return bool(value)
