@@ -12,7 +12,7 @@ from functools import wraps
 
 T = TypeVar('T')
 SOCKET_BUFFER = 1024
-DEBUG = False
+DEBUG = True
 
 def dprint(*args, **kwargs):
     if DEBUG:
@@ -121,24 +121,45 @@ class Thread():
             t.start()
         return wrapper
 
+##
+## Deprecated maybe could be used in the future
+## Future implementation could be in PrototypeMap({ raisePrototypeExceptions: True })
+## If the Validator class will be used in the future, use with the prototype.isValid() implemented on the PrototypeMap
+## Or create a new class eg PrototypeExceptionMap()
+##
 class Validator():
     class SizeValidator():
         @staticmethod
-        def validate(value: object, arguments: dict):
+        def validate(value: object, arguments: dict) -> tuple[bool, ValueError | None]:
             dprint(f"(*) Validation of {value}")
             minSize = arguments.get("minSize", None)
             maxSize = arguments.get("maxSize", None)
             if minSize and len(value) < minSize:
-                raise ValueError("The value is less than the specified minimum " + str(minSize))
+                return False, ValueError("The value is less than the specified minimum " + str(minSize))
             if maxSize and len(value) > maxSize:
-                raise ValueError("The value is greater than the specified maximum " + str(maxSize))
+                return False, ValueError("The value is greater than the specified maximum " + str(maxSize))
+            return True, None
 
     class PatternValidator():
         @staticmethod
-        def validate(value: object, arguments: dict):
+        def validate(value: object, arguments: dict) -> bool:
             pass
 
 class Prototype(): 
+
+    def isValid(self) -> bool:
+        properties = self.getProperties()
+        scheme: dict[str, Prototype.Property] = getattr(self, "__scheme__", {})
+        for key in scheme:
+            attr = getattr(self, key, None)
+            isValid, error = scheme[key].validate(attr)
+            if error:
+                return False
+        return True
+
+    def getProperties(self) -> list[Property]:
+        properties: dict[str, Prototype.Property] = getattr(self, "__scheme__")
+        return list(properties.values())
 
     class Property(Generic[T], ABC):
         def __init__(self, **k):
@@ -149,29 +170,33 @@ class Prototype():
         def parse(self, value: Any) -> T:
             pass
 
-        def validate(self, value: T):
-            pass
-        
+        def validate(self, value: T) -> tuple[bool, ValueError | None]:
+            return True, None
+
     class Boolean(Property[bool]):
         def parse(self, value):
             return bool(value)
     
     class Int(Property[int]):
         def parse(self, value):
-            Validator.SizeValidator.validate(value, self.arguments)
             return int(value)
 
     class String(Property[str]):
+        __validators = [Validator.SizeValidator]
         def parse(self, value):
             return str(value)
         
-        def validate(self, value):
-            Validator.SizeValidator.validate(value, self.arguments)
+        def validate(self, value) -> tuple[bool, ValueError | None]:
+            for validator in self.__validators:
+                isValid, error = validator.validate(value, self.arguments)
+                if error:
+                    return isValid, error
             return super().validate(value)
 
     class DateTime(Property[datetime]):
         def parse(self, value):
             return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+        
         
     class Dict(Property[dict[str, Any]]):
         
@@ -236,14 +261,13 @@ class PrototypeMap():
                 dprint(f"(*) Building for attribute {attribute_map}")
                 if attribute_map.isproperty:
                     value = self.__mapper[key].property.parse(value=package[key])
-                    self.__mapper[key].property.validate(value)
                     kwargs[key] = value
                 else:
                     instance = Prototype()
                     for attr in self.__mapper[key].scheme:
                         value = self.__mapper[key].scheme[attr].parse(package[attr])
-                        self.__mapper[key].scheme[attr].validate(value)
                         setattr(instance, attr, value)
+                    setattr(instance, "__scheme__", self.__mapper[key].scheme)
                     kwargs[key] = instance
             return func(reference, **kwargs, **k)
         return wrapper
@@ -257,12 +281,15 @@ class PrototypeMap():
             print(f"\t(*) Mapping property {annotation}")
             property = annotation()
         else:
+            #props = []
             for attr in annotation.__dict__:
                 if not attr.startswith('__'):  # Filter out special methods and attributes
                     prop = getattr(annotation, attr, None)
                     if isinstance(prop, Prototype.Property):
                         print(f"\t(*) Mapping attribute {attr} as {prop.__class__}")
                         scheme[attr] = prop
+                        #props.append(prop)
+                    #scheme["__props__"] = props
         return ParamMap(isproperty=isproperty, property=property, scheme=scheme)
     
 class MappedCallHandler():
