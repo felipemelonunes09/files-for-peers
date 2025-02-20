@@ -13,7 +13,7 @@ from functools import wraps
 
 T = TypeVar('T')
 SOCKET_BUFFER = 1024
-DEBUG = True
+DEBUG = False
 
 def dprint(*args, **kwargs):
     if DEBUG:
@@ -153,7 +153,6 @@ class Validator():
 class Prototype(): 
 
     def isValid(self) -> bool:
-        properties = self.getProperties()
         scheme: dict[str, Prototype.Property] = getattr(self, "__scheme__", {})
         for key in scheme:
             attr = getattr(self, key, None)
@@ -201,7 +200,6 @@ class Prototype():
     class DateTime(Property[datetime]):
         def parse(self, value):
             return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-        
         
     class Dict(Property[dict[str, Any]]):
         
@@ -278,7 +276,7 @@ class PrototypeMap():
         return wrapper
     
     def buildMapper(self, annotation: Type) -> ParamMap:
-        bases = list(annotation.__bases__)
+        bases = list(annotation.__mro__)
         isproperty = Prototype.Property in bases
         scheme = dict()
         property = None
@@ -286,15 +284,12 @@ class PrototypeMap():
             print(f"\t(*) Mapping property {annotation}")
             property = annotation()
         else:
-            #props = []
-            for attr in annotation.__dict__:
-                if not attr.startswith('__'):  # Filter out special methods and attributes
-                    prop = getattr(annotation, attr, None)
+            for key in dir(annotation):
+                if not key.startswith('__'):
+                    prop = getattr(annotation, key, None)
                     if isinstance(prop, Prototype.Property):
-                        print(f"\t(*) Mapping attribute {attr} as {prop.__class__}")
-                        scheme[attr] = prop
-                        #props.append(prop)
-                    #scheme["__props__"] = props
+                        print(f"\t(*) Mapping attribute {key} as {prop.__class__}")
+                        scheme[key] = prop
         return ParamMap(isproperty=isproperty, property=property, scheme=scheme)
     
 class MappedCallHandler():
